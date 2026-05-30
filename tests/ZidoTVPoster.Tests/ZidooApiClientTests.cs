@@ -27,6 +27,23 @@ public sealed class ZidooApiClientTests
     }
 
     [Fact]
+    public void CollectionListResponse_ParsesBareArray()
+    {
+        const string json = """
+        [
+          { "id": 130, "parentId": -1, "type": 3, "name": "Band of Brothers", "watched": false },
+          { "id": 291, "parentId": -1, "type": 2, "name": "A Quiet Place Collection", "watched": false }
+        ]
+        """;
+
+        var response = JsonSerializer.Deserialize<ZidooCollectionListResponse>(json, ZidooJson.Options);
+
+        Assert.NotNull(response);
+        Assert.Equal(200, response.Status);
+        Assert.Contains(response.Data, item => item.Id == 130 && item.Type == 3 && item.Name == "Band of Brothers");
+    }
+
+    [Fact]
     public void DetailResponse_ParsesEpisodesAndMediaUris()
     {
         const string json = """
@@ -75,6 +92,78 @@ public sealed class ZidooApiClientTests
         Assert.False(episode.Watched);
         var media = Assert.Single(episode.Aggregations!);
         Assert.Equal("/Series/Band of Brothers/Season 1/Band of Brothers - S01E01.mkv", media.Aggregation!.Uri);
+    }
+
+    [Fact]
+    public void DetailResponse_UsesAggregationsAsEpisodesWhenEpisodesMissing()
+    {
+        const string json = """
+        {
+          "id": 131,
+          "parentId": 130,
+          "type": 4,
+          "name": "Season 1",
+          "watched": false,
+          "aggregation": {
+            "id": "131",
+            "seasonNumber": "1",
+            "episodeCount": "1",
+            "tvName": "Band of Brothers"
+          },
+          "aggregations": [
+            {
+              "id": 401,
+              "parentId": 131,
+              "type": 5,
+              "name": "Currahee",
+              "watched": false,
+              "aggregations": [
+                {
+                  "id": 402,
+                  "parentId": 401,
+                  "type": 0,
+                  "name": "Band of Brothers - S01E01.mkv",
+                  "watched": false,
+                  "aggregation": {
+                    "uri": "/Series/Band of Brothers/Season 1/Band of Brothers - S01E01.mkv"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+        """;
+
+        var response = JsonSerializer.Deserialize<ZidooDetailResponse>(json, ZidooJson.Options);
+
+        Assert.NotNull(response);
+        var episode = Assert.Single(response.Episodes);
+        Assert.Equal(401, episode.Id);
+        Assert.Equal("/Series/Band of Brothers/Season 1/Band of Brothers - S01E01.mkv", Assert.Single(episode.Aggregations!).Aggregation!.Uri);
+    }
+
+    [Fact]
+    public void ZidooItem_MapsDataToAggregations()
+    {
+        const string json = """
+        {
+          "id": 130,
+          "parentId": -1,
+          "type": 3,
+          "name": "Band of Brothers",
+          "watched": false,
+          "data": [
+            { "id": 131, "parentId": 130, "type": 4, "name": "Season 1", "watched": false }
+          ]
+        }
+        """;
+
+        var item = JsonSerializer.Deserialize<ZidooItem>(json, ZidooJson.Options);
+
+        Assert.NotNull(item);
+        var season = Assert.Single(item.Aggregations!);
+        Assert.Equal(131, season.Id);
+        Assert.Equal(4, season.Type);
     }
 
     [Fact]
