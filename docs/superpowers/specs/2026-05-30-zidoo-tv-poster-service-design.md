@@ -12,6 +12,8 @@ The first target device is the user's Zidoo Z9X 8K at `192.168.0.209`, with SMB 
 
 The service should be safe to run continuously. It should detect watched-state changes from the Zidoo API, regenerate only the posters whose counts changed, and preserve original artwork in the relevant series folder for easy maintenance.
 
+Series may live on shared sources where folders are regularly added and removed. The service must therefore keep all durable per-series artifacts inside the original series folder. When a series folder is removed from the share, its originals, generated posters, and state should disappear with that folder instead of accumulating in a separate service cache.
+
 ## Existing Context
 
 `D:\Development\MoviePosterGen` already proved the basic local artwork model for Zidoo:
@@ -64,6 +66,8 @@ Original poster storage:
 - Store original poster assets inside the relevant series folder, not in a hidden global service cache.
 - Never render from an already generated/badged poster.
 - Keep generated posters beside the originals so a user can inspect or restore them easily.
+- Do not keep durable per-series poster copies or state in `ProgramData`, the service install folder, or any other global cache.
+- Treat the original series folder as the cleanup boundary: if the user removes the series folder from the share, all service-created files for that series should be removed with it.
 
 For a series at:
 
@@ -121,6 +125,7 @@ tests/ZidoTVPoster.Tests
 - Poster badge renderer.
 - Poster update planner.
 - State file reader/writer.
+- Shared-source reconciliation that ignores removed series folders and avoids orphaned durable artifacts.
 
 `ZidoTVPoster.Service` contains hosting concerns:
 
@@ -150,7 +155,7 @@ Initial settings:
   "Zidoo": {
     "BaseUrl": "http://192.168.0.209:9529",
     "StorageRoot": "\\\\192.168.0.209\\Share\\Storage",
-    "MediaRootName": "Series",
+    "MediaRootNames": [ "Series" ],
     "RequestTimeoutSeconds": 10
   },
   "PosterUpdates": {
@@ -184,6 +189,8 @@ On each polling cycle:
 13. Apply generated posters to Zidoo Poster Wall.
 14. Save the updated state file.
 
+If Zidoo still returns a series whose source folder has been removed from the share, the service should skip poster work for that series and log that the source folder no longer exists. It should not create replacement folders just to store state.
+
 ## Folder Mapping
 
 The API returns media URIs in the form:
@@ -205,6 +212,18 @@ The series folder is the path segment immediately after the configured media roo
 ```
 
 If a URI cannot be mapped, skip that series or season and log a warning with the Zidoo id and URI.
+
+The service should support multiple configured media root names because shared sources can be organized differently over time. For example:
+
+```json
+{
+  "MediaRootNames": [ "Series", "TV", "Shows" ]
+}
+```
+
+For each URI, the mapper should use the first configured media root segment found in the path. If no configured media root segment exists, the URI is unmappable.
+
+After mapping, the service must verify that the resolved series folder exists before writing any files. A missing folder means the source has probably been removed or is temporarily unavailable; the service should skip it for that cycle.
 
 ## Original Poster Acquisition
 
@@ -272,6 +291,8 @@ The first implementation should include an integration probe command or dry-run 
 
 `poster-state.json` lives in each series `.zido-tv-poster` folder.
 
+There is no global per-series state file. The service may keep ordinary application logs in the Windows service log location, but logs must not be required to clean up poster artifacts. The durable state for a series lives only under that series folder.
+
 Suggested structure:
 
 ```json
@@ -313,6 +334,13 @@ SMB unavailable:
 - Skip poster writes.
 - Retry on the next polling cycle.
 
+Series folder missing:
+
+- Treat the series as removed or temporarily unavailable.
+- Do not recreate the series folder.
+- Do not create or preserve service-owned artifacts elsewhere.
+- Skip the series until the Zidoo API and SMB source agree again.
+
 Missing original poster:
 
 - Log the missing source.
@@ -344,7 +372,9 @@ Unit tests:
 - Count season unwatched episodes.
 - Confirm watched episodes are excluded.
 - Map `/Series/Show/Season 1/file.mkv` to the expected UNC path.
+- Map `/TV/Show/Season 1/file.mkv` when `TV` is configured as a media root.
 - Reject unmappable URIs without guessing.
+- Skip poster planning when the mapped series folder does not exist.
 - Confirm zero-count posters produce no badge when configured.
 - Confirm non-zero-count posters produce changed image output.
 
@@ -353,6 +383,7 @@ Integration tests/manual probes:
 - Confirm the service can call `getModel`.
 - Confirm TV series discovery finds `type == 3` items.
 - Confirm at least one real series maps to a writable SMB folder.
+- Confirm removed or unavailable source folders do not create new state folders.
 - Confirm the selected poster apply mechanism updates the Poster Wall.
 
 Operational test:
@@ -398,5 +429,4 @@ The design is ready to implement, but these must be answered during implementati
 - Which API route, if any, can reliably set a custom poster for `type == 3` series and `type == 4` season items?
 - Does Zidoo immediately refresh Poster Wall after a poster update, or must a refresh/clear-cache endpoint be called?
 - Are season posters individually displayed and updateable on the Z9X 8K for all TV layouts?
-- Are all user TV files under `/Series/...`, or should the service support multiple configured media roots?
-
+- Which media root names are currently in use across the shared sources?
