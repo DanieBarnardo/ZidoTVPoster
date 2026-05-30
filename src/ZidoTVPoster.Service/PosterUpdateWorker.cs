@@ -147,7 +147,22 @@ public sealed class PosterUpdateWorker : BackgroundService
 
         foreach (var item in plan.Items)
         {
-            await ProcessPosterItemAsync(apiClient, item, cancellationToken);
+            try
+            {
+                await ProcessPosterItemAsync(apiClient, item, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(
+                    exception,
+                    "Skipping {PosterKind} poster for Zidoo item {ZidooId} after processing failure.",
+                    item.Kind,
+                    item.ZidooId);
+            }
         }
     }
 
@@ -176,6 +191,12 @@ public sealed class PosterUpdateWorker : BackgroundService
                 originalResult.Message);
             return;
         }
+
+        logger.LogInformation(
+            "Resolved original {PosterKind} poster for Zidoo item {ZidooId}: {Message}",
+            item.Kind,
+            item.ZidooId,
+            originalResult.Message);
 
         var generatedPosterPath = Path.Combine(serviceFolder, generatedFileName);
         await renderer.RenderAsync(
