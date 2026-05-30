@@ -8,6 +8,8 @@ public sealed class PosterApplier
         bool dryRun,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (dryRun)
         {
             return Task.FromResult(PosterApplyResult.Ok($"Dry run: would apply {generatedPosterPath} to {item.Kind} {item.ZidooId}."));

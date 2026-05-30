@@ -35,4 +35,16 @@ public sealed class PosterApplierTests
         Assert.Contains("not enabled", result.Message);
         Assert.Contains("Zidoo poster update route is verified", result.Message);
     }
+
+    [Fact]
+    public async Task ApplyAsync_ThrowsOperationCanceledException_WhenTokenIsCanceled()
+    {
+        var item = PosterUpdateItem.Series(42, 5, @"Z:\TV\Band of Brothers");
+        var applier = new PosterApplier();
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            applier.ApplyAsync(item, "generated-poster.jpg", dryRun: true, cancellationTokenSource.Token));
+    }
 }
