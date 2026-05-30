@@ -19,7 +19,7 @@ public sealed class PosterUpdateWorkerTests
     public async Task RunOnceAsync_AfterSuccessfulDryRun_SavesCurrentPosterState()
     {
         var storageRoot = CreateTempFolder();
-        var seriesFolder = Path.Combine(storageRoot, "Series", "Band of Brothers");
+        var seriesFolder = Path.Combine(storageRoot, "Band of Brothers");
         Directory.CreateDirectory(seriesFolder);
         using var httpClient = new HttpClient(new WorkerHttpMessageHandler(CreatePosterBytes()))
         {
@@ -48,7 +48,7 @@ public sealed class PosterUpdateWorkerTests
     public async Task RunOnceAsync_WhenApplyFails_DoesNotSavePosterState()
     {
         var storageRoot = CreateTempFolder();
-        var seriesFolder = Path.Combine(storageRoot, "Series", "Band of Brothers");
+        var seriesFolder = Path.Combine(storageRoot, "Band of Brothers");
         Directory.CreateDirectory(seriesFolder);
         using var httpClient = new HttpClient(new WorkerHttpMessageHandler(CreatePosterBytes()))
         {
@@ -65,7 +65,7 @@ public sealed class PosterUpdateWorkerTests
     public async Task RunOnceAsync_WhenSourcePosterIsMissing_DoesNotSavePosterState()
     {
         var storageRoot = CreateTempFolder();
-        var seriesFolder = Path.Combine(storageRoot, "Series", "Band of Brothers");
+        var seriesFolder = Path.Combine(storageRoot, "Band of Brothers");
         Directory.CreateDirectory(seriesFolder);
         using var httpClient = new HttpClient(new WorkerHttpMessageHandler(CreatePosterBytes(), missingPosterIds: new HashSet<int> { 130 }))
         {

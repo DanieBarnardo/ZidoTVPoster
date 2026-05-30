@@ -12,7 +12,7 @@ public static class Program
     {
         try
         {
-            var options = ConsoleOptions.Parse(args);
+            var options = ConsoleOptions.Parse(args, ConsoleConfiguration.LoadZidooOptions());
             using var cancellation = new CancellationTokenSource();
             global::System.Console.CancelKeyPress += (_, eventArgs) =>
             {
@@ -48,7 +48,7 @@ public static class Program
         using var httpClient = new HttpClient
         {
             BaseAddress = new Uri(options.BaseUrl),
-            Timeout = TimeSpan.FromSeconds(30)
+            Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds)
         };
         var apiClient = new ZidooApiClient(httpClient);
 
@@ -99,6 +99,7 @@ public static class Program
         global::System.Console.WriteLine($"Zidoo API: {options.BaseUrl}");
         global::System.Console.WriteLine($"Storage root: {options.StorageRoot}");
         global::System.Console.WriteLine($"Media roots: {string.Join(", ", options.MediaRootNames)}");
+        global::System.Console.WriteLine($"Request timeout: {options.RequestTimeoutSeconds} seconds");
         if (!string.IsNullOrWhiteSpace(options.SeriesFilter))
         {
             global::System.Console.WriteLine($"Series filter: {options.SeriesFilter}");

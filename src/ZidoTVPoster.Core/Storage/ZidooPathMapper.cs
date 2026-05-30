@@ -41,7 +41,7 @@ public sealed class ZidooPathMapper(string storageRoot, IReadOnlyCollection<stri
 
             return new SeriesFolderMapResult(
                 true,
-                Path.Combine(storageRoot, segment, segments[seriesIndex]));
+                Path.Combine(storageRoot, segments[seriesIndex]));
         }
 
         return new SeriesFolderMapResult(false, null);

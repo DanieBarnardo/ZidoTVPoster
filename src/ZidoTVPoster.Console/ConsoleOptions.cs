@@ -1,9 +1,12 @@
+using ZidoTVPoster.Core.Configuration;
+
 namespace ZidoTVPoster.Console;
 
 public sealed record ConsoleOptions(
     string BaseUrl,
     string StorageRoot,
     string[] MediaRootNames,
+    int RequestTimeoutSeconds,
     string? SeriesFilter,
     bool DryRun)
 {
@@ -11,9 +14,15 @@ public sealed record ConsoleOptions(
 
     public static ConsoleOptions Parse(string[] args)
     {
-        var baseUrl = "http://192.168.0.209:9529";
-        var storageRoot = @"\\192.168.0.209\Share\Storage";
-        var mediaRootNames = new[] { "Series" };
+        return Parse(args, new ZidooOptions());
+    }
+
+    public static ConsoleOptions Parse(string[] args, ZidooOptions zidooOptions)
+    {
+        var baseUrl = zidooOptions.BaseUrl;
+        var storageRoot = zidooOptions.StorageRoot;
+        var mediaRootNames = zidooOptions.MediaRootNames;
+        var requestTimeoutSeconds = zidooOptions.RequestTimeoutSeconds;
         string? seriesFilter = null;
         var dryRun = false;
 
@@ -37,12 +46,15 @@ public sealed record ConsoleOptions(
                     mediaRootNames = ReadValue(args, ref index, "--media-roots")
                         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     break;
+                case "--request-timeout-seconds":
+                    requestTimeoutSeconds = int.Parse(ReadValue(args, ref index, "--request-timeout-seconds"));
+                    break;
                 default:
                     throw new ArgumentException($"Unknown argument: {args[index]}");
             }
         }
 
-        return new ConsoleOptions(baseUrl, storageRoot, mediaRootNames, seriesFilter, dryRun);
+        return new ConsoleOptions(baseUrl, storageRoot, mediaRootNames, requestTimeoutSeconds, seriesFilter, dryRun);
     }
 
     private static string ReadValue(string[] args, ref int index, string name)

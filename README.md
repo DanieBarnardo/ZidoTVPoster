@@ -24,7 +24,7 @@ Configure the service with `appsettings.json`:
 {
   "Zidoo": {
     "BaseUrl": "http://192.168.0.209:9529",
-    "StorageRoot": "\\\\192.168.0.209\\Share\\Storage",
+    "StorageRoot": "D:\\MediaData\\Series",
     "MediaRootNames": [ "Series" ],
     "RequestTimeoutSeconds": 10
   },
@@ -38,7 +38,7 @@ Configure the service with `appsettings.json`:
 }
 ```
 
-`StorageRoot` is the SMB path that contains the configured media roots. With the configuration above, TV series are discovered under `\\192.168.0.209\Share\Storage\Series`.
+`StorageRoot` is the folder, reachable from the PC running the service or console, that contains the TV series folders. `MediaRootNames` are the Zidoo URI folder names used to identify the series name in API paths. With the configuration above, a Zidoo URI like `/Series/Band of Brothers/Season 1/S01E01.mkv` maps to `D:\MediaData\Series\Band of Brothers`.
 
 ## Run Dry-Run Locally
 
@@ -48,7 +48,7 @@ dotnet run --project src/ZidoTVPoster.Service/ZidoTVPoster.Service.csproj
 
 ## Debug Console
 
-The solution also includes a one-shot console app for diagnostics. By default it performs local poster updates and state writes under each series folder:
+The solution also includes a one-shot console app for diagnostics. It reads `appsettings.json` using the same `Zidoo` configuration shape as the service. By default it performs local poster updates and state writes under each series folder:
 
 ```powershell
 dotnet run --project src/ZidoTVPoster.Console/ZidoTVPoster.Console.csproj

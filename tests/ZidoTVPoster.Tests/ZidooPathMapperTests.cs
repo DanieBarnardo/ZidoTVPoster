@@ -9,11 +9,11 @@ public sealed class ZidooPathMapperTests
     {
         var result = ZidooPathMapper.MapSeriesFolder(
             "/Series/Band of Brothers/Season 1/S01E01.mkv",
-            @"\\192.168.0.209\Share\Storage",
+            @"D:\MediaData\Series",
             ["Series"]);
 
         Assert.True(result.Success);
-        Assert.Equal(@"\\192.168.0.209\Share\Storage\Series\Band of Brothers", result.SeriesFolder);
+        Assert.Equal(@"D:\MediaData\Series\Band of Brothers", result.SeriesFolder);
     }
 
     [Fact]
@@ -21,11 +21,11 @@ public sealed class ZidooPathMapperTests
     {
         var result = ZidooPathMapper.MapSeriesFolder(
             "/TV/Show Name/Season 1/S01E01.mkv",
-            @"\\192.168.0.209\Share\Storage",
+            @"D:\MediaData\Series",
             ["Series", "TV"]);
 
         Assert.True(result.Success);
-        Assert.Equal(@"\\192.168.0.209\Share\Storage\TV\Show Name", result.SeriesFolder);
+        Assert.Equal(@"D:\MediaData\Series\Show Name", result.SeriesFolder);
     }
 
     [Fact]
