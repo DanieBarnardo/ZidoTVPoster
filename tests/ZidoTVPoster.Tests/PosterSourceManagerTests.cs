@@ -124,6 +124,34 @@ public sealed class PosterSourceManagerTests
         Assert.False(File.Exists(GetOriginalPath(seriesFolder, "original-series.jpg")));
     }
 
+    [Fact]
+    public async Task EnsureOriginalAsync_WhenPreCanceled_DoesNotCreateServiceFolderOrCallDownload()
+    {
+        var seriesFolder = CreateTempSeriesFolder();
+        var existingCandidate = Path.Combine(seriesFolder, "poster.jpg");
+        await File.WriteAllBytesAsync(existingCandidate, [4, 5, 6], CancellationToken.None);
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
+        var manager = new PosterSourceManager();
+        var downloadCalled = false;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            manager.EnsureOriginalAsync(
+                seriesFolder,
+                "original-series.jpg",
+                [existingCandidate],
+                (_, _) =>
+                {
+                    downloadCalled = true;
+                    return Task.FromResult<byte[]?>([7, 8, 9]);
+                },
+                42,
+                cancellationTokenSource.Token));
+
+        Assert.False(Directory.Exists(Path.Combine(seriesFolder, PosterStateStore.ServiceFolderName)));
+        Assert.False(downloadCalled);
+    }
+
     private static string GetOriginalPath(string seriesFolder, string originalFileName)
     {
         return Path.Combine(seriesFolder, PosterStateStore.ServiceFolderName, originalFileName);
