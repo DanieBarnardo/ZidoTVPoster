@@ -17,7 +17,7 @@ public static class TvLibraryDiscovery
                 item.Aggregation?.EpisodeNumber ?? 0,
                 item.Name,
                 item.Watched,
-                item.Aggregations?.FirstOrDefault()?.Aggregation?.Uri))
+                FindFirstMediaUri(item)))
             .ToList();
 
         return new SeasonSummary(
@@ -27,5 +27,12 @@ public static class TvLibraryDiscovery
             episodes.Count(episode => !episode.Watched),
             episodes.FirstOrDefault(episode => !string.IsNullOrWhiteSpace(episode.MediaUri))?.MediaUri,
             episodes);
+    }
+
+    private static string? FindFirstMediaUri(ZidooItem item)
+    {
+        return item.Aggregations?
+            .Select(child => child.Aggregation?.Uri)
+            .FirstOrDefault(uri => !string.IsNullOrWhiteSpace(uri));
     }
 }
