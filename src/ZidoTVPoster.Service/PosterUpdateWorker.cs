@@ -145,11 +145,16 @@ public sealed class PosterUpdateWorker : BackgroundService
             series.UnwatchedCount,
             plan.Items.Count);
 
+        var canSaveState = true;
         foreach (var item in plan.Items)
         {
             try
             {
-                await ProcessPosterItemAsync(apiClient, item, cancellationToken);
+                var result = await ProcessPosterItemAsync(apiClient, item, cancellationToken);
+                if (!result.StateCanBeSaved)
+                {
+                    canSaveState = false;
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -157,6 +162,7 @@ public sealed class PosterUpdateWorker : BackgroundService
             }
             catch (Exception exception)
             {
+                canSaveState = false;
                 logger.LogError(
                     exception,
                     "Skipping {PosterKind} poster for Zidoo item {ZidooId} after processing failure.",
@@ -164,9 +170,21 @@ public sealed class PosterUpdateWorker : BackgroundService
                     item.ZidooId);
             }
         }
+
+        if (!canSaveState)
+        {
+            logger.LogWarning(
+                "Not saving poster state for TV series {SeriesId}: {SeriesName} because one or more planned poster updates failed.",
+                series.SeriesId,
+                series.Name);
+            return;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await stateStore.SaveAsync(map.SeriesFolder, CreatePosterState(series), cancellationToken);
     }
 
-    private async Task ProcessPosterItemAsync(
+    private async Task<PosterItemProcessResult> ProcessPosterItemAsync(
         ZidooApiClient apiClient,
         PosterUpdateItem item,
         CancellationToken cancellationToken)
@@ -185,11 +203,11 @@ public sealed class PosterUpdateWorker : BackgroundService
         if (!originalResult.Success || originalResult.OriginalPosterPath is null)
         {
             logger.LogWarning(
-                "Skipping {PosterKind} poster for Zidoo item {ZidooId}: {Reason}",
+                "Skipping {PosterKind} poster for Zidoo item {ZidooId} because the source poster is missing: {Reason}",
                 item.Kind,
                 item.ZidooId,
                 originalResult.Message);
-            return;
+            return PosterItemProcessResult.SourceMissingSkipped;
         }
 
         logger.LogInformation(
@@ -219,7 +237,7 @@ public sealed class PosterUpdateWorker : BackgroundService
                 item.Kind,
                 item.ZidooId,
                 applyResult.Message);
-            return;
+            return PosterItemProcessResult.Succeeded;
         }
 
         logger.LogWarning(
@@ -227,6 +245,7 @@ public sealed class PosterUpdateWorker : BackgroundService
             item.Kind,
             item.ZidooId,
             applyResult.Message);
+        return PosterItemProcessResult.Failed;
     }
 
     private static string GetOriginalFileName(PosterUpdateItem item)
@@ -248,5 +267,33 @@ public sealed class PosterUpdateWorker : BackgroundService
         return item.Kind == PosterTargetKind.Series
             ? [Path.Combine(item.SeriesFolder, "poster.jpg")]
             : [];
+    }
+
+    private static PosterState CreatePosterState(SeriesSummary series)
+    {
+        return new PosterState(
+            series.SeriesId,
+            series.Name,
+            DateTimeOffset.UtcNow,
+            new PosterCountState(
+                series.UnwatchedCount,
+                PosterFileNames.OriginalSeriesPoster,
+                PosterFileNames.GeneratedSeriesPoster),
+            series.Seasons.Select(season => new SeasonPosterState(
+                season.SeasonId,
+                season.SeasonNumber,
+                season.Name,
+                season.UnwatchedCount,
+                PosterFileNames.OriginalSeasonPoster(season.SeasonNumber, season.SeasonId),
+                PosterFileNames.GeneratedSeasonPoster(season.SeasonNumber, season.SeasonId))).ToArray());
+    }
+
+    private sealed record PosterItemProcessResult(bool StateCanBeSaved)
+    {
+        public static PosterItemProcessResult Succeeded { get; } = new(true);
+
+        public static PosterItemProcessResult SourceMissingSkipped { get; } = new(true);
+
+        public static PosterItemProcessResult Failed { get; } = new(false);
     }
 }
