@@ -1,1 +1,12 @@
 .worktrees/
+
+# .NET build outputs
+bin/
+obj/
+TestResults/
+
+# Local IDE/user state
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
