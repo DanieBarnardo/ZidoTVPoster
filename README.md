@@ -46,6 +46,22 @@ Configure the service with `appsettings.json`:
 dotnet run --project src/ZidoTVPoster.Service/ZidoTVPoster.Service.csproj
 ```
 
+## Debug Console
+
+The solution also includes a one-shot console app for diagnostics. By default it performs local poster updates and state writes under each series folder:
+
+```powershell
+dotnet run --project src/ZidoTVPoster.Console/ZidoTVPoster.Console.csproj
+```
+
+Use `--dry-run` to only print discovery, mapping, unwatched counts, and planned poster updates without writing files:
+
+```powershell
+dotnet run --project src/ZidoTVPoster.Console/ZidoTVPoster.Console.csproj -- --dry-run --series "Band of Brothers"
+```
+
+Useful options are `--base-url`, `--storage-root`, `--media-roots`, `--series`, and `--dry-run`.
+
 ## Build And Test
 
 ```powershell

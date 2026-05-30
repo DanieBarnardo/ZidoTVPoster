@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ZidoTVPoster.Core\ZidoTVPoster.Core.csproj" />
     <ProjectReference Include="..\..\src\ZidoTVPoster.Service\ZidoTVPoster.Service.csproj" />
+    <ProjectReference Include="..\..\src\ZidoTVPoster.Console\ZidoTVPoster.Console.csproj" />
   </ItemGroup>
 
 </Project>
