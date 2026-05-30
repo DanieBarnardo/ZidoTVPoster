@@ -7,8 +7,15 @@ using ZidoTVPoster.Service;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.Configure<ZidooOptions>(builder.Configuration.GetSection("Zidoo"));
-builder.Services.Configure<PosterUpdateOptions>(builder.Configuration.GetSection("PosterUpdates"));
+builder.Services.AddOptions<ZidooOptions>()
+    .Bind(builder.Configuration.GetSection("Zidoo"))
+    .Validate(ZidooOptions.IsValid, "Zidoo options must include an absolute BaseUrl, positive RequestTimeoutSeconds, StorageRoot, and non-empty MediaRootNames.")
+    .ValidateOnStart();
+
+builder.Services.AddOptions<PosterUpdateOptions>()
+    .Bind(builder.Configuration.GetSection("PosterUpdates"))
+    .Validate(PosterUpdateOptions.IsValid, "PosterUpdates options must include positive PollIntervalSeconds and a valid BadgeTextFormat.")
+    .ValidateOnStart();
 
 builder.Services.AddHttpClient<ZidooApiClient>((provider, client) =>
 {

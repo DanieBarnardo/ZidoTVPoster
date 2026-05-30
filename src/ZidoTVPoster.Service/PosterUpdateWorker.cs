@@ -11,7 +11,7 @@ public sealed class PosterUpdateWorker : BackgroundService
 {
     private readonly ILogger<PosterUpdateWorker> logger;
     private readonly IOptions<PosterUpdateOptions> posterOptions;
-    private readonly ZidooApiClient apiClient;
+    private readonly IServiceScopeFactory scopeFactory;
     private readonly ZidooPathMapper pathMapper;
     private readonly PosterStateStore stateStore;
     private readonly PosterPlanner planner;
@@ -21,7 +21,7 @@ public sealed class PosterUpdateWorker : BackgroundService
     public PosterUpdateWorker(
         ILogger<PosterUpdateWorker> logger,
         IOptions<PosterUpdateOptions> posterOptions,
-        ZidooApiClient apiClient,
+        IServiceScopeFactory scopeFactory,
         ZidooPathMapper pathMapper,
         PosterStateStore stateStore,
         PosterPlanner planner,
@@ -30,7 +30,7 @@ public sealed class PosterUpdateWorker : BackgroundService
     {
         this.logger = logger;
         this.posterOptions = posterOptions;
-        this.apiClient = apiClient;
+        this.scopeFactory = scopeFactory;
         this.pathMapper = pathMapper;
         this.stateStore = stateStore;
         this.planner = planner;
@@ -42,13 +42,27 @@ public sealed class PosterUpdateWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await RunOnceAsync(stoppingToken);
+            try
+            {
+                await RunOnceAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception, "Poster update iteration failed.");
+            }
+
             await Task.Delay(TimeSpan.FromSeconds(posterOptions.Value.PollIntervalSeconds), stoppingToken);
         }
     }
 
     internal async Task RunOnceAsync(CancellationToken cancellationToken)
     {
+        using var scope = scopeFactory.CreateScope();
+        var apiClient = scope.ServiceProvider.GetRequiredService<ZidooApiClient>();
         var collections = await apiClient.GetCollectionListAsync(cancellationToken);
         foreach (var seriesItem in collections.Data.Where(TvLibraryDiscovery.IsTvSeries))
         {
