@@ -54,6 +54,18 @@ public sealed class TvLibraryDiscoveryTests
     }
 
     [Fact]
+    public void BuildSeasonSummary_UsesFirstAvailableMediaUri()
+    {
+        var detail = CreateSeasonDetail(
+            CreateEpisode(401, 1, "Pilot", watched: false),
+            CreateEpisode(402, 2, "Second", watched: false, "/Series/Show/Season 1/S01E02.mkv"));
+
+        var summary = TvLibraryDiscovery.BuildSeasonSummary(130, "Show", detail);
+
+        Assert.Equal("/Series/Show/Season 1/S01E02.mkv", summary.FirstMediaUri);
+    }
+
+    [Fact]
     public void SeriesSummary_UnwatchedCount_SumsSeasonCounts()
     {
         var series = new SeriesSummary(

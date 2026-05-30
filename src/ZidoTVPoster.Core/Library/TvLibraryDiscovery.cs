@@ -25,7 +25,7 @@ public static class TvLibraryDiscovery
             detail.Aggregation?.SeasonNumber ?? 0,
             detail.Name,
             episodes.Count(episode => !episode.Watched),
-            episodes.FirstOrDefault()?.MediaUri,
+            episodes.FirstOrDefault(episode => !string.IsNullOrWhiteSpace(episode.MediaUri))?.MediaUri,
             episodes);
     }
 }
