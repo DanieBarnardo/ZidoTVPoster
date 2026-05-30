@@ -4,7 +4,7 @@ ZidoTVPoster is a C# Windows Service for Zidoo Poster Wall TV libraries. It poll
 
 ## Safety Model
 
-ZidoTVPoster defaults to dry-run mode. In dry-run mode it discovers libraries, plans poster updates, and renders service-owned artifacts without applying poster changes back to Zidoo.
+ZidoTVPoster keeps durable source artifacts under each series folder and can apply generated posters to Zidoo-recognized local artwork filenames. Use `DryRun` to discover libraries and plan poster updates without writing visible artwork.
 
 Durable per-series artifacts are stored only under:
 
@@ -14,7 +14,7 @@ Durable per-series artifacts are stored only under:
 
 This keeps generated state beside the series it belongs to. If a series folder is removed from the shared source, the service-owned files under that series folder go with it. ZidoTVPoster does not keep a per-series poster cache in `ProgramData` or in the install folder.
 
-Real poster application remains disabled until the Zidoo poster route is verified.
+When `DryRun` is `false`, generated artwork is copied to local filenames that Zidoo Poster Wall can read, such as `poster.jpg`, `tvshow.nfo`, `season01-poster.jpg`, and season-folder `poster.jpg`.
 
 ## Configuration
 
@@ -30,7 +30,7 @@ Configure the service with `appsettings.json`:
   },
   "PosterUpdates": {
     "PollIntervalSeconds": 60,
-    "DryRun": true,
+    "DryRun": false,
     "HideBadgeWhenZero": true,
     "BadgePlacement": "TopRight",
     "BadgeTextFormat": "{0} unwatched"

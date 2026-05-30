@@ -13,7 +13,7 @@ public sealed class PosterPlanner
 
         var items = new List<PosterUpdateItem>();
 
-        if (previousState?.Series.UnwatchedCount != series.UnwatchedCount)
+        if (previousState?.Series.UnwatchedCount != series.UnwatchedCount || !SeriesVisibleArtworkExists(seriesFolder))
         {
             items.Add(PosterUpdateItem.Series(series.SeriesId, series.UnwatchedCount, seriesFolder));
         }
@@ -21,7 +21,8 @@ public sealed class PosterPlanner
         foreach (var season in series.Seasons)
         {
             var previousSeason = previousState?.Seasons.FirstOrDefault(candidate => candidate.SeasonId == season.SeasonId);
-            if (previousSeason?.UnwatchedCount != season.UnwatchedCount)
+            if (previousSeason?.UnwatchedCount != season.UnwatchedCount ||
+                !SeasonVisibleArtworkExists(seriesFolder, season.SeasonNumber))
             {
                 items.Add(PosterUpdateItem.Season(
                     season.SeasonId,
@@ -32,6 +33,22 @@ public sealed class PosterPlanner
         }
 
         return PosterUpdatePlan.Ready(items);
+    }
+
+    private static bool SeriesVisibleArtworkExists(string seriesFolder)
+    {
+        return File.Exists(Path.Combine(seriesFolder, "poster.jpg")) &&
+            File.Exists(Path.Combine(seriesFolder, "tvshow.nfo"));
+    }
+
+    private static bool SeasonVisibleArtworkExists(string seriesFolder, int seasonNumber)
+    {
+        if (seasonNumber <= 0)
+        {
+            return false;
+        }
+
+        return File.Exists(Path.Combine(seriesFolder, $"season{seasonNumber:00}-poster.jpg"));
     }
 }
 

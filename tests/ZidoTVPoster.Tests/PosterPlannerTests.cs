@@ -63,6 +63,7 @@ public sealed class PosterPlannerTests
     public void Plan_IncludesNoItems_WhenPreviousStateCountsMatchCurrentCounts()
     {
         var seriesFolder = CreateTempSeriesFolder();
+        WriteVisibleArtwork(seriesFolder, seasonNumbers: [1, 2]);
         var series = CreateSeries();
         var previousState = CreateState(seriesUnwatchedCount: 5, seasonOneUnwatchedCount: 2, seasonTwoUnwatchedCount: 3);
         var planner = new PosterPlanner();
@@ -74,9 +75,28 @@ public sealed class PosterPlannerTests
     }
 
     [Fact]
+    public void Plan_IncludesItems_WhenPreviousStateCountsMatchButVisibleArtworkIsMissing()
+    {
+        var seriesFolder = CreateTempSeriesFolder();
+        var series = CreateSeries();
+        var previousState = CreateState(seriesUnwatchedCount: 5, seasonOneUnwatchedCount: 2, seasonTwoUnwatchedCount: 3);
+        var planner = new PosterPlanner();
+
+        var plan = planner.Plan(series, seriesFolder, previousState);
+
+        Assert.False(plan.Skip);
+        Assert.Collection(
+            plan.Items,
+            item => Assert.Equal(PosterTargetKind.Series, item.Kind),
+            item => Assert.Equal(PosterTargetKind.Season, item.Kind),
+            item => Assert.Equal(PosterTargetKind.Season, item.Kind));
+    }
+
+    [Fact]
     public void Plan_IncludesOnlyChangedSeasons_WhenSeriesTotalIsUnchanged()
     {
         var seriesFolder = CreateTempSeriesFolder();
+        WriteVisibleArtwork(seriesFolder, seasonNumbers: [1, 2]);
         var series = CreateSeries(seasonOneUnwatchedCount: 3, seasonTwoUnwatchedCount: 2);
         var previousState = CreateState(seriesUnwatchedCount: 5, seasonOneUnwatchedCount: 2, seasonTwoUnwatchedCount: 3);
         var planner = new PosterPlanner();
@@ -137,5 +157,15 @@ public sealed class PosterPlannerTests
         var folder = Path.Combine(Path.GetTempPath(), "ZidoTVPosterTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         return folder;
+    }
+
+    private static void WriteVisibleArtwork(string seriesFolder, IReadOnlyList<int> seasonNumbers)
+    {
+        File.WriteAllText(Path.Combine(seriesFolder, "poster.jpg"), string.Empty);
+        File.WriteAllText(Path.Combine(seriesFolder, "tvshow.nfo"), string.Empty);
+        foreach (var seasonNumber in seasonNumbers)
+        {
+            File.WriteAllText(Path.Combine(seriesFolder, $"season{seasonNumber:00}-poster.jpg"), string.Empty);
+        }
     }
 }

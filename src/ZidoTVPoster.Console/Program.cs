@@ -108,9 +108,9 @@ public static class Program
         if (options.ApplyUpdates)
         {
             global::System.Console.WriteLine(
-                "Updates enabled: local original posters, generated posters, and state files may be written under each series folder.");
+                "Updates enabled: local originals, generated posters, Zidoo-visible artwork, and state files may be written under each series folder.");
             global::System.Console.WriteLine(
-                "Zidoo poster-wall apply is still informational until the poster update route is verified.");
+                "Zidoo may still need local artwork precedence enabled and a metadata refresh to show changed files.");
         }
         else
         {
@@ -272,7 +272,7 @@ public static class Program
         var applyResult = await applier.ApplyAsync(
             item,
             generatedPosterPath,
-            dryRun: true,
+            posterOptions.DryRun,
             cancellationToken);
 
         global::System.Console.WriteLine(
