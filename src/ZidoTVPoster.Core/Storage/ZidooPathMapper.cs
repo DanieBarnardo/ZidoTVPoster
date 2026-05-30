@@ -2,8 +2,13 @@ namespace ZidoTVPoster.Core.Storage;
 
 public sealed record SeriesFolderMapResult(bool Success, string? SeriesFolder);
 
-public static class ZidooPathMapper
+public sealed class ZidooPathMapper(string storageRoot, IReadOnlyCollection<string> mediaRootNames)
 {
+    public SeriesFolderMapResult MapSeriesFolder(string? uri)
+    {
+        return MapSeriesFolder(uri, storageRoot, mediaRootNames);
+    }
+
     public static SeriesFolderMapResult MapSeriesFolder(
         string? uri,
         string storageRoot,
