@@ -292,7 +292,7 @@ public sealed class PosterUpdateWorker : BackgroundService
     {
         public static PosterItemProcessResult Succeeded { get; } = new(true);
 
-        public static PosterItemProcessResult SourceMissingSkipped { get; } = new(true);
+        public static PosterItemProcessResult SourceMissingSkipped { get; } = new(false);
 
         public static PosterItemProcessResult Failed { get; } = new(false);
     }

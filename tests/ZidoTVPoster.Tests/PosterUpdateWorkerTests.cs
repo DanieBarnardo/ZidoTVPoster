@@ -61,6 +61,23 @@ public sealed class PosterUpdateWorkerTests
         Assert.False(File.Exists(PosterStateStore.GetStatePath(seriesFolder)));
     }
 
+    [Fact]
+    public async Task RunOnceAsync_WhenSourcePosterIsMissing_DoesNotSavePosterState()
+    {
+        var storageRoot = CreateTempFolder();
+        var seriesFolder = Path.Combine(storageRoot, "Series", "Band of Brothers");
+        Directory.CreateDirectory(seriesFolder);
+        using var httpClient = new HttpClient(new WorkerHttpMessageHandler(CreatePosterBytes(), missingPosterIds: new HashSet<int> { 130 }))
+        {
+            BaseAddress = new Uri("http://zidoo.local")
+        };
+        var worker = CreateWorker(httpClient, storageRoot, dryRun: true);
+
+        await RunOnceAsync(worker, CancellationToken.None);
+
+        Assert.False(File.Exists(PosterStateStore.GetStatePath(seriesFolder)));
+    }
+
     private static PosterUpdateWorker CreateWorker(HttpClient httpClient, string storageRoot, bool dryRun)
     {
         var services = new ServiceCollection();
@@ -103,7 +120,7 @@ public sealed class PosterUpdateWorkerTests
         return folder;
     }
 
-    private sealed class WorkerHttpMessageHandler(byte[] posterBytes) : HttpMessageHandler
+    private sealed class WorkerHttpMessageHandler(byte[] posterBytes, IReadOnlySet<int>? missingPosterIds = null) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -168,10 +185,14 @@ public sealed class PosterUpdateWorkerTests
                       ]
                     }
                     """),
+                "/ZidooPoster/getFile/getPoster?id=130&w=1000&h=1500" when missingPosterIds?.Contains(130) == true =>
+                    new HttpResponseMessage(HttpStatusCode.NotFound),
                 "/ZidooPoster/getFile/getPoster?id=130&w=1000&h=1500" => new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new ByteArrayContent(posterBytes)
                 },
+                "/ZidooPoster/getFile/getPoster?id=131&w=1000&h=1500" when missingPosterIds?.Contains(131) == true =>
+                    new HttpResponseMessage(HttpStatusCode.NotFound),
                 "/ZidooPoster/getFile/getPoster?id=131&w=1000&h=1500" => new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new ByteArrayContent(posterBytes)

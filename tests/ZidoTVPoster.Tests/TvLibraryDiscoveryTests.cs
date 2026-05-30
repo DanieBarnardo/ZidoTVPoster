@@ -85,6 +85,23 @@ public sealed class TvLibraryDiscoveryTests
     }
 
     [Fact]
+    public void BuildSeasonSummary_TreatsTypeOneItemsWithEpisodeDataAsEpisodes()
+    {
+        var detail = CreateSeasonDetail(
+            CreateNonEpisode(498, "Extras"),
+            CreateTypeOneEpisode(401, 1, "Pilot", watched: false, "/Series/Show/Season 1/S01E01.mkv"));
+
+        var summary = TvLibraryDiscovery.BuildSeasonSummary(130, "Show", detail);
+        var episode = Assert.Single(summary.Episodes);
+
+        Assert.Equal(1, summary.UnwatchedCount);
+        Assert.Equal("/Series/Show/Season 1/S01E01.mkv", summary.FirstMediaUri);
+        Assert.Equal(401, episode.EpisodeId);
+        Assert.Equal(1, episode.EpisodeNumber);
+        Assert.Equal("/Series/Show/Season 1/S01E01.mkv", episode.MediaUri);
+    }
+
+    [Fact]
     public void SeriesSummary_UnwatchedCount_SumsSeasonCounts()
     {
         var series = new SeriesSummary(
@@ -174,6 +191,26 @@ public sealed class TvLibraryDiscoveryTests
             watched,
             new ZidooAggregation(EpisodeNumber: episodeNumber),
             media);
+    }
+
+    private static ZidooItem CreateTypeOneEpisode(int id, int episodeNumber, string name, bool watched, string mediaUri)
+    {
+        return new ZidooItem(
+            id,
+            131,
+            1,
+            name,
+            watched,
+            new ZidooAggregation(EpisodeNumber: episodeNumber),
+            [
+                new ZidooItem(
+                    id + 1000,
+                    id,
+                    0,
+                    $"{name}.mkv",
+                    Watched: false,
+                    Aggregation: new ZidooAggregation(Uri: mediaUri))
+            ]);
     }
 
     private static ZidooItem CreateNonEpisode(int id, string name)

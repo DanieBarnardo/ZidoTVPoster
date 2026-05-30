@@ -11,7 +11,7 @@ public static class TvLibraryDiscovery
     public static SeasonSummary BuildSeasonSummary(int seriesId, string seriesName, ZidooDetailResponse detail)
     {
         var episodes = detail.Episodes
-            .Where(item => item.Type == 5)
+            .Where(IsEpisodeDetailItem)
             .Select(item => new EpisodeSummary(
                 item.Id,
                 item.Aggregation?.EpisodeNumber ?? 0,
@@ -27,6 +27,12 @@ public static class TvLibraryDiscovery
             episodes.Count(episode => !episode.Watched),
             episodes.FirstOrDefault(episode => !string.IsNullOrWhiteSpace(episode.MediaUri))?.MediaUri,
             episodes);
+    }
+
+    private static bool IsEpisodeDetailItem(ZidooItem item)
+    {
+        return item.Type == 5 ||
+            (item.Aggregation?.EpisodeNumber > 0 && !string.IsNullOrWhiteSpace(FindFirstMediaUri(item)));
     }
 
     private static string? FindFirstMediaUri(ZidooItem item)
