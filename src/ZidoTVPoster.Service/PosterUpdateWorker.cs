@@ -66,48 +66,80 @@ public sealed class PosterUpdateWorker : BackgroundService
         var collections = await apiClient.GetCollectionListAsync(cancellationToken);
         foreach (var seriesItem in collections.Data.Where(TvLibraryDiscovery.IsTvSeries))
         {
-            var seriesCollection = await apiClient.GetCollectionAsync(seriesItem.Id, cancellationToken);
-            var seasons = new List<SeasonSummary>();
-            var seasonItems = (seriesCollection.Aggregations ?? [])
-                .Where(TvLibraryDiscovery.IsSeason)
-                .ToList();
-
-            if (TvLibraryDiscovery.IsSeason(seriesCollection))
+            try
             {
-                seasonItems.Insert(0, seriesCollection);
+                await PlanSeriesAsync(apiClient, seriesItem, cancellationToken);
             }
-
-            foreach (var seasonItem in seasonItems)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                var detail = await apiClient.GetDetailAsync(seasonItem.Id, cancellationToken);
-                seasons.Add(TvLibraryDiscovery.BuildSeasonSummary(seriesItem.Id, seriesItem.Name, detail));
+                throw;
             }
-
-            var series = new SeriesSummary(seriesItem.Id, seriesItem.Name, seasons);
-            var firstUri = series.Seasons
-                .Select(season => season.FirstMediaUri)
-                .FirstOrDefault(uri => !string.IsNullOrWhiteSpace(uri));
-
-            var map = pathMapper.MapSeriesFolder(firstUri);
-            if (!map.Success || map.SeriesFolder is null)
+            catch (Exception exception)
             {
-                logger.LogWarning("Skipping {SeriesName}: could not map media URI to a series folder.", series.Name);
-                continue;
+                logger.LogError(
+                    exception,
+                    "Skipping TV series {SeriesId}: {SeriesName} after planning failure.",
+                    seriesItem.Id,
+                    seriesItem.Name);
             }
-
-            var previousState = await stateStore.LoadAsync(map.SeriesFolder, cancellationToken);
-            var plan = planner.Plan(series, map.SeriesFolder, previousState);
-            if (plan.Skip)
-            {
-                logger.LogWarning("Skipping {SeriesName}: {Reason}", series.Name, plan.SkipReason);
-                continue;
-            }
-
-            logger.LogInformation(
-                "{SeriesName}: {SeriesUnwatched} unwatched episodes, {PosterCount} poster updates planned.",
-                series.Name,
-                series.UnwatchedCount,
-                plan.Items.Count);
         }
+    }
+
+    private async Task PlanSeriesAsync(
+        ZidooApiClient apiClient,
+        ZidooItem seriesItem,
+        CancellationToken cancellationToken)
+    {
+        var seriesCollection = await apiClient.GetCollectionAsync(seriesItem.Id, cancellationToken);
+        var seasons = new List<SeasonSummary>();
+        var seasonItems = (seriesCollection.Aggregations ?? [])
+            .Where(TvLibraryDiscovery.IsSeason)
+            .ToList();
+
+        if (TvLibraryDiscovery.IsSeason(seriesCollection))
+        {
+            seasonItems.Insert(0, seriesCollection);
+        }
+
+        foreach (var seasonItem in seasonItems)
+        {
+            var detail = await apiClient.GetDetailAsync(seasonItem.Id, cancellationToken);
+            seasons.Add(TvLibraryDiscovery.BuildSeasonSummary(seriesItem.Id, seriesItem.Name, detail));
+        }
+
+        var series = new SeriesSummary(seriesItem.Id, seriesItem.Name, seasons);
+        var firstUri = series.Seasons
+            .Select(season => season.FirstMediaUri)
+            .FirstOrDefault(uri => !string.IsNullOrWhiteSpace(uri));
+
+        var map = pathMapper.MapSeriesFolder(firstUri);
+        if (!map.Success || map.SeriesFolder is null)
+        {
+            logger.LogWarning(
+                "Skipping TV series {SeriesId}: {SeriesName}: could not map media URI {MediaUri} to a series folder.",
+                series.SeriesId,
+                series.Name,
+                firstUri);
+            return;
+        }
+
+        var previousState = await stateStore.LoadAsync(map.SeriesFolder, cancellationToken);
+        var plan = planner.Plan(series, map.SeriesFolder, previousState);
+        if (plan.Skip)
+        {
+            logger.LogWarning(
+                "Skipping TV series {SeriesId}: {SeriesName} at {SeriesFolder}: {Reason}",
+                series.SeriesId,
+                series.Name,
+                map.SeriesFolder,
+                plan.SkipReason);
+            return;
+        }
+
+        logger.LogInformation(
+            "{SeriesName}: {SeriesUnwatched} unwatched episodes, {PosterCount} poster updates planned.",
+            series.Name,
+            series.UnwatchedCount,
+            plan.Items.Count);
     }
 }

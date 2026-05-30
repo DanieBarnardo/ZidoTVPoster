@@ -126,7 +126,9 @@ internal sealed class ZidooCollectionListResponseConverter : JsonConverter<Zidoo
 
         using var document = JsonDocument.ParseValue(ref reader);
         var root = document.RootElement;
-        var status = root.TryGetProperty("status", out var statusElement) ? statusElement.GetInt32() : 200;
+        var status = root.TryGetProperty("status", out var statusElement)
+            ? JsonSerializer.Deserialize<int>(statusElement.GetRawText(), options)
+            : 200;
         var data = root.TryGetProperty("data", out var dataElement)
             ? JsonSerializer.Deserialize<IReadOnlyList<ZidooItem>>(dataElement.GetRawText(), options) ?? []
             : [];

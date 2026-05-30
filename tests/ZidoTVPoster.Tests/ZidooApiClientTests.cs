@@ -44,6 +44,25 @@ public sealed class ZidooApiClientTests
     }
 
     [Fact]
+    public void CollectionListResponse_ParsesStringStatus()
+    {
+        const string json = """
+        {
+          "status": "200",
+          "data": [
+            { "id": 130, "parentId": -1, "type": 3, "name": "Band of Brothers", "watched": false }
+          ]
+        }
+        """;
+
+        var response = JsonSerializer.Deserialize<ZidooCollectionListResponse>(json, ZidooJson.Options);
+
+        Assert.NotNull(response);
+        Assert.Equal(200, response.Status);
+        Assert.Equal("Band of Brothers", Assert.Single(response.Data).Name);
+    }
+
+    [Fact]
     public void DetailResponse_ParsesEpisodesAndMediaUris()
     {
         const string json = """
