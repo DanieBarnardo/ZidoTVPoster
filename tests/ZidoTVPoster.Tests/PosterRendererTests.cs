@@ -67,6 +67,43 @@ public sealed class PosterRendererTests
         Assert.Equal("JPEG", format.Name);
     }
 
+    [Fact]
+    public async Task RenderAsync_WhenCanceled_PreservesExistingGeneratedPoster()
+    {
+        var source = CreatePoster(Color.CornflowerBlue, 320, 480);
+        var output = CreatePoster(Color.HotPink, 320, 480);
+        var originalBytes = await File.ReadAllBytesAsync(output);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new PosterRenderer().RenderAsync(
+            source,
+            output,
+            unwatchedCount: 9,
+            new PosterUpdateOptions(),
+            cancellation.Token));
+
+        Assert.Equal(originalBytes, await File.ReadAllBytesAsync(output));
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithSmallOddAspectPoster_PreservesDimensions()
+    {
+        var source = CreatePoster(Color.CornflowerBlue, 25, 11);
+        var output = Path.Combine(CreateTempFolder(), "small.jpg");
+
+        await new PosterRenderer().RenderAsync(
+            source,
+            output,
+            unwatchedCount: 2,
+            new PosterUpdateOptions { BadgeTextFormat = "{0}" },
+            CancellationToken.None);
+
+        using var image = await Image.LoadAsync<Rgba32>(output);
+        Assert.Equal(25, image.Width);
+        Assert.Equal(11, image.Height);
+    }
+
     private static string CreatePoster(Color color, int width, int height)
     {
         var path = Path.Combine(CreateTempFolder(), "source.png");
