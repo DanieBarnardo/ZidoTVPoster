@@ -15,6 +15,7 @@ public sealed class PosterUpdateWorker : BackgroundService
     private readonly ZidooPathMapper pathMapper;
     private readonly PosterStateStore stateStore;
     private readonly PosterPlanner planner;
+    private readonly PosterSourceManager sourceManager;
     private readonly PosterRenderer renderer;
     private readonly PosterApplier applier;
 
@@ -25,6 +26,7 @@ public sealed class PosterUpdateWorker : BackgroundService
         ZidooPathMapper pathMapper,
         PosterStateStore stateStore,
         PosterPlanner planner,
+        PosterSourceManager sourceManager,
         PosterRenderer renderer,
         PosterApplier applier)
     {
@@ -34,6 +36,7 @@ public sealed class PosterUpdateWorker : BackgroundService
         this.pathMapper = pathMapper;
         this.stateStore = stateStore;
         this.planner = planner;
+        this.sourceManager = sourceManager;
         this.renderer = renderer;
         this.applier = applier;
     }
@@ -141,5 +144,88 @@ public sealed class PosterUpdateWorker : BackgroundService
             series.Name,
             series.UnwatchedCount,
             plan.Items.Count);
+
+        foreach (var item in plan.Items)
+        {
+            await ProcessPosterItemAsync(apiClient, item, cancellationToken);
+        }
+    }
+
+    private async Task ProcessPosterItemAsync(
+        ZidooApiClient apiClient,
+        PosterUpdateItem item,
+        CancellationToken cancellationToken)
+    {
+        var serviceFolder = Path.Combine(item.SeriesFolder, PosterStateStore.ServiceFolderName);
+        var originalFileName = GetOriginalFileName(item);
+        var generatedFileName = GetGeneratedFileName(item);
+        var originalResult = await sourceManager.EnsureOriginalAsync(
+            item.SeriesFolder,
+            originalFileName,
+            GetLocalPosterCandidates(item),
+            apiClient.GetPosterBytesAsync,
+            item.ZidooId,
+            cancellationToken);
+
+        if (!originalResult.Success || originalResult.OriginalPosterPath is null)
+        {
+            logger.LogWarning(
+                "Skipping {PosterKind} poster for Zidoo item {ZidooId}: {Reason}",
+                item.Kind,
+                item.ZidooId,
+                originalResult.Message);
+            return;
+        }
+
+        var generatedPosterPath = Path.Combine(serviceFolder, generatedFileName);
+        await renderer.RenderAsync(
+            originalResult.OriginalPosterPath,
+            generatedPosterPath,
+            item.UnwatchedCount,
+            posterOptions.Value,
+            cancellationToken);
+
+        var applyResult = await applier.ApplyAsync(
+            item,
+            generatedPosterPath,
+            posterOptions.Value.DryRun,
+            cancellationToken);
+
+        if (applyResult.Success)
+        {
+            logger.LogInformation(
+                "Applied {PosterKind} poster for Zidoo item {ZidooId}: {Message}",
+                item.Kind,
+                item.ZidooId,
+                applyResult.Message);
+            return;
+        }
+
+        logger.LogWarning(
+            "Failed to apply {PosterKind} poster for Zidoo item {ZidooId}: {Message}",
+            item.Kind,
+            item.ZidooId,
+            applyResult.Message);
+    }
+
+    private static string GetOriginalFileName(PosterUpdateItem item)
+    {
+        return item.Kind == PosterTargetKind.Series
+            ? PosterFileNames.OriginalSeriesPoster
+            : PosterFileNames.OriginalSeasonPoster(item.SeasonNumber, item.ZidooId);
+    }
+
+    private static string GetGeneratedFileName(PosterUpdateItem item)
+    {
+        return item.Kind == PosterTargetKind.Series
+            ? PosterFileNames.GeneratedSeriesPoster
+            : PosterFileNames.GeneratedSeasonPoster(item.SeasonNumber, item.ZidooId);
+    }
+
+    private static IReadOnlyList<string> GetLocalPosterCandidates(PosterUpdateItem item)
+    {
+        return item.Kind == PosterTargetKind.Series
+            ? [Path.Combine(item.SeriesFolder, "poster.jpg")]
+            : [];
     }
 }

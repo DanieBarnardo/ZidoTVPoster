@@ -31,6 +31,7 @@ builder.Services.AddSingleton(provider =>
 });
 builder.Services.AddSingleton<PosterStateStore>();
 builder.Services.AddSingleton<PosterPlanner>();
+builder.Services.AddSingleton<PosterSourceManager>();
 builder.Services.AddSingleton<PosterRenderer>();
 builder.Services.AddSingleton<PosterApplier>();
 builder.Services.AddHostedService<PosterUpdateWorker>();
