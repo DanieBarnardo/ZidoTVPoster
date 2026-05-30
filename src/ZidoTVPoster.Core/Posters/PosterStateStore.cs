@@ -32,12 +32,31 @@ public sealed class PosterStateStore
             throw new DirectoryNotFoundException($"Series folder does not exist: {seriesFolder}");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         var serviceFolder = Path.Combine(seriesFolder, ServiceFolderName);
         Directory.CreateDirectory(serviceFolder);
 
         var statePath = GetStatePath(seriesFolder);
-        await using var stream = File.Create(statePath);
-        await JsonSerializer.SerializeAsync(stream, state, JsonOptions, cancellationToken);
+        var tempPath = Path.Combine(serviceFolder, $"{StateFileName}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                await JsonSerializer.SerializeAsync(stream, state, JsonOptions, cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(tempPath, statePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
     }
 
     public static string GetStatePath(string seriesFolder)

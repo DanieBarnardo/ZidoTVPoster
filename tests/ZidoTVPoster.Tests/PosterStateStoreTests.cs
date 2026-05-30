@@ -70,6 +70,31 @@ public sealed class PosterStateStoreTests
         Assert.False(Directory.Exists(seriesFolder));
     }
 
+    [Fact]
+    public async Task SaveAsync_DoesNotReplaceExistingStateFile_WhenTokenIsPreCanceled()
+    {
+        var seriesFolder = CreateTempSeriesFolder();
+        var serviceFolder = Path.Combine(seriesFolder, PosterStateStore.ServiceFolderName);
+        Directory.CreateDirectory(serviceFolder);
+        var statePath = PosterStateStore.GetStatePath(seriesFolder);
+        var originalJson = """
+            {
+              "SeriesId": 7,
+              "SeriesName": "Existing"
+            }
+            """;
+        await File.WriteAllTextAsync(statePath, originalJson, CancellationToken.None);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var store = new PosterStateStore();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => store.SaveAsync(seriesFolder, CreateState(), cts.Token));
+
+        var actualJson = await File.ReadAllTextAsync(statePath, CancellationToken.None);
+        Assert.Equal(originalJson, actualJson);
+    }
+
     private static PosterState CreateState()
     {
         return new PosterState(
