@@ -35,7 +35,7 @@ public sealed class PosterSourceManager
             }
 
             Directory.CreateDirectory(serviceFolder);
-            File.Copy(candidatePath, originalPath, overwrite: false);
+            CopyToOriginal(candidatePath, serviceFolder, originalPath, originalFileName, cancellationToken);
             return PosterSourceResult.Ok(originalPath, $"Copied original poster from {candidatePath}.");
         }
 
@@ -48,8 +48,61 @@ public sealed class PosterSourceManager
         }
 
         Directory.CreateDirectory(serviceFolder);
-        await File.WriteAllBytesAsync(originalPath, bytes, cancellationToken);
+        await WriteBytesToOriginalAsync(bytes, serviceFolder, originalPath, originalFileName, cancellationToken);
         return PosterSourceResult.Ok(originalPath, $"Downloaded original poster for Zidoo item {zidooId}.");
+    }
+
+    private static void CopyToOriginal(
+        string sourcePath,
+        string serviceFolder,
+        string originalPath,
+        string originalFileName,
+        CancellationToken cancellationToken)
+    {
+        var tempPath = CreateTempPath(serviceFolder, originalFileName);
+        try
+        {
+            File.Copy(sourcePath, tempPath, overwrite: false);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(tempPath, originalPath, overwrite: true);
+        }
+        finally
+        {
+            DeleteTempFile(tempPath);
+        }
+    }
+
+    private static async Task WriteBytesToOriginalAsync(
+        byte[] bytes,
+        string serviceFolder,
+        string originalPath,
+        string originalFileName,
+        CancellationToken cancellationToken)
+    {
+        var tempPath = CreateTempPath(serviceFolder, originalFileName);
+        try
+        {
+            await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(tempPath, originalPath, overwrite: true);
+        }
+        finally
+        {
+            DeleteTempFile(tempPath);
+        }
+    }
+
+    private static string CreateTempPath(string serviceFolder, string originalFileName)
+    {
+        return Path.Combine(serviceFolder, $"{Path.GetFileName(originalFileName)}.{Guid.NewGuid():N}.tmp");
+    }
+
+    private static void DeleteTempFile(string tempPath)
+    {
+        if (File.Exists(tempPath))
+        {
+            File.Delete(tempPath);
+        }
     }
 }
 

@@ -152,6 +152,34 @@ public sealed class PosterSourceManagerTests
         Assert.False(downloadCalled);
     }
 
+    [Fact]
+    public async Task EnsureOriginalAsync_WhenCanceledAfterDownload_DoesNotPublishOriginalOrLeaveTempFile()
+    {
+        var seriesFolder = CreateTempSeriesFolder();
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var manager = new PosterSourceManager();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            manager.EnsureOriginalAsync(
+                seriesFolder,
+                "original-series.jpg",
+                [],
+                (_, _) =>
+                {
+                    cancellationTokenSource.Cancel();
+                    return Task.FromResult<byte[]?>([7, 8, 9]);
+                },
+                42,
+                cancellationTokenSource.Token));
+
+        var serviceFolder = Path.Combine(seriesFolder, PosterStateStore.ServiceFolderName);
+        Assert.False(File.Exists(GetOriginalPath(seriesFolder, "original-series.jpg")));
+        if (Directory.Exists(serviceFolder))
+        {
+            Assert.Empty(Directory.EnumerateFiles(serviceFolder, "*.tmp"));
+        }
+    }
+
     private static string GetOriginalPath(string seriesFolder, string originalFileName)
     {
         return Path.Combine(seriesFolder, PosterStateStore.ServiceFolderName, originalFileName);
