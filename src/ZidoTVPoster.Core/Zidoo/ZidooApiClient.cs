@@ -30,4 +30,15 @@ public sealed class ZidooApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<ZidooDetailResponse>(ZidooJson.Options, cancellationToken)
             ?? throw new InvalidOperationException($"Zidoo detail response for {id} was empty.");
     }
+
+    public async Task<byte[]?> GetPosterBytesAsync(int id, CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.GetAsync($"/ZidooPoster/getFile/getPoster?id={id}&w=1000&h=1500", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
 }

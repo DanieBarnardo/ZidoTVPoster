@@ -261,16 +261,63 @@ public sealed class ZidooApiClientTests
         Assert.Equal("Season 1", response.Name);
     }
 
-    private sealed class StubHttpMessageHandler(string responseBody) : HttpMessageHandler
+    [Fact]
+    public async Task GetPosterBytesAsync_UsesPosterEndpointAndReturnsBytes()
     {
+        var posterBytes = new byte[] { 1, 2, 3 };
+        using var handler = new StubHttpMessageHandler(posterBytes);
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://zidoo.local")
+        };
+        var client = new ZidooApiClient(httpClient);
+
+        var response = await client.GetPosterBytesAsync(130, CancellationToken.None);
+
+        Assert.Equal("/ZidooPoster/getFile/getPoster?id=130&w=1000&h=1500", handler.RequestUri?.PathAndQuery);
+        Assert.Equal(posterBytes, response);
+    }
+
+    [Fact]
+    public async Task GetPosterBytesAsync_ReturnsNullForNonSuccessResponse()
+    {
+        using var handler = new StubHttpMessageHandler("missing", HttpStatusCode.NotFound);
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://zidoo.local")
+        };
+        var client = new ZidooApiClient(httpClient);
+
+        var response = await client.GetPosterBytesAsync(130, CancellationToken.None);
+
+        Assert.Null(response);
+    }
+
+    private sealed class StubHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly HttpStatusCode statusCode;
+        private readonly HttpContent content;
+
+        public StubHttpMessageHandler(string responseBody, HttpStatusCode statusCode = HttpStatusCode.OK)
+        {
+            this.statusCode = statusCode;
+            content = new StringContent(responseBody);
+        }
+
+        public StubHttpMessageHandler(byte[] responseBody, HttpStatusCode statusCode = HttpStatusCode.OK)
+        {
+            this.statusCode = statusCode;
+            content = new ByteArrayContent(responseBody);
+        }
+
         public Uri? RequestUri { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestUri = request.RequestUri;
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            var response = new HttpResponseMessage(statusCode)
             {
-                Content = new StringContent(responseBody)
+                Content = content
             };
             return Task.FromResult(response);
         }
